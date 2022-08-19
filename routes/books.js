@@ -28,7 +28,7 @@ const idLength = 8;
  *           description: The book author
  *       example:
  *         id: d5fE_asz
- *         title: The New Turing Omnibus
+ *         title: Turing collection
  *         author: Alexander K. Dewdney
  */
 
@@ -101,24 +101,24 @@ router.get("/:id", (req, res) => {
 /**
  * @swagger
  * /books:
- *  post:
- *    summary: Create a new book
- *    tags: [Books]
- *    requestBody:
- *      required: true
- *      content:
- *        application/json:
- *          schema:
- *            $ref: '#/components/schemas/Book'
- *    repsonses:
- *      200:
- *        description: The book was successfully created
- *        content: 
- *          application/json:
- *            schema:
- *              $ref: '#/components/schemas/Book'
- *      500:
- *        description: Server Error
+ *   post:
+ *     summary: Create a new book
+ *     tags: [Books]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/Book'
+ *     responses:
+ *       200:
+ *         description: The book was successfully created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Book'
+ *       500:
+ *         description: Some server error
  */
 
 // Add book
@@ -131,30 +131,101 @@ router.post("/", (req, res) => {
             // this is just for demonstration purposes, don't do this.
             ... req.body
         }
-        req.app.db.chain.get("books").push(book)
-        console.log("Book: " + JSON.stringify(book))
-        res.send(book) // YOU ARE HERE
+        // Lowdb version 3 and ES6 have some issues. this is a work around.
+        // Not too worried as this demos main focus is Swagger. Use lowdb V1 in future.
+        // Using lodash chain to .push(), won't work with lowdb V3
+        const newBooks = req.app.db.chain.get("books").push(book)
+        // Need to log to register in memory
+        console.log("Added " + JSON.stringify(newBooks))
+        // standard lowdb .write() to disk
+        req.app.db.write()
+        // Done, send for swagger doc viewing.
+        res.send(book)
     } catch (error) {
         return res.status(500).send(error)
     }
 })
+
+/**
+ * @swagger
+ * /books/{id}:
+ *  put:
+ *    summary: Update the book by the id
+ *    tags: [Books]
+ *    parameters:
+ *      - in: path
+ *        name: id
+ *        schema:
+ *          type: string
+ *        required: true
+ *        description: The book id
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        application/json:
+ *          schema:
+ *            $ref: '#/components/schemas/Book'
+ *    responses:
+ *      200:
+ *        description: The book was updated
+ *        content:
+ *          application/json:
+ *            schema:
+ *              $ref: '#/components/schemas/Book'
+ *      404:
+ *        description: The book was not found
+ *      500:
+ *        description: Server error!
+ */
 
 // Update book
 router.put("/:id", (req, res) => {
     try {
-        req.app.db.get("books").find({ id: req.params.id }).assign(req.body).write()
-
-        res.send(req.app.db.get("books").find({id:req.params.id}))
+        // Like before, this is a work around lowdbV3 / ES6 conflicts.
+        // Using lodash chain to .find() & .assign()
+        const putBook = req.app.db.chain.get("books").find({ id: req.params.id }).assign(req.body)
+        // Need to log to register in memory
+        console.log("To alter " + JSON.stringify(putBook))
+        // standard lowdb .write() to disk
+        req.app.db.write()
+        // send new details for doc viewing.
+        res.send(req.app.db.chain.get("books").find({ id: req.params.id}).value())
     } catch (error) {
         return res.status(500).send(error)
     }
 })
 
+/**
+ * @swagger
+ * /books/{id}:
+ *   delete:
+ *     summary: Remove the book by id
+ *     tags: [Books]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The book id
+ * 
+ *     responses:
+ *       200:
+ *         description: The book was deleted
+ *       404:
+ *         description: The book was not found
+ */
+
 // Delete book
 router.delete("/:id", (req, res) => {
-    req.app.db.get("books").remove({ id: req.params.id}).write()
-
-    // Once deleted
+    // Like before, this is a work around lowdbV3 / ES6 conflicts.
+    // Using lodash chain to .remove()
+    const delBook = req.app.db.chain.get("books").remove({ id: req.params.id})
+    // Need to log to register in memory
+    console.log("To delete " + JSON.stringify(delBook))
+    // standard lowdb .write() to disk
+    req.app.db.write()
+    // Once deleted, send confirmation status
     res.sendStatus(200)
 })
 
